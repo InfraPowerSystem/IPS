@@ -538,7 +538,7 @@ footer{background:#020804;border-top:1px solid var(--bd);padding:60px 0 26px}
   /* Catalog */
   .cat-layout{grid-template-columns:1fr}
   .cat-sb{border-right:none;border-bottom:1px solid var(--bd)}
-  .csb-nav{max-height:none;display:flex;flex-wrap:wrap;gap:3px;padding:8px 12px}
+  .csb-nav{max-height:280px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;align-content:flex-start}
   .csb-grp,.csb-div{display:none}
   .csb-item{border:1px solid var(--bd);border-left:none;border-radius:14px;padding:4px 10px;font-size:11px}
   .csb-item.on{border-color:var(--g)}
@@ -1083,7 +1083,10 @@ footer{background:#020804;border-top:1px solid var(--bd);padding:60px 0 26px}
       <!-- SIDEBAR -->
       <div class="cat-sb">
         <div class="csb-hd">
-          <h3>Categories</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <h3>Categories</h3>
+            <button id="csb-clear-btn" onclick="clearAllFilters()" style="display:none;align-items:center;gap:4px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:var(--am);font-size:11px;font-weight:700;padding:5px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;flex-shrink:0">✕ Clear</button>
+          </div>
           <div class="csb-sq"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" id="csb-q" placeholder="Filter…"></div>
         </div>
         <div class="csb-nav" id="csb-nav">
@@ -1149,6 +1152,7 @@ footer{background:#020804;border-top:1px solid var(--bd);padding:60px 0 26px}
             <button class="pill" onclick="qpill(this,'mcb')">MCB/MCCB</button>
           </div>
           <span class="res-ct" id="res-ct">Loading…</span>
+          <button id="clear-filter-btn" onclick="clearAllFilters()" style="display:none;align-items:center;gap:5px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:var(--am);font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;margin-left:10px;white-space:nowrap">✕ Clear Filter</button>
         </div>
         <div class="cat-body" id="cat-body">
           <div id="no-res" style="text-align:center;padding:60px;color:var(--mt)"><div style="font-size:36px;margin-bottom:10px">🔍</div><h3 style="color:var(--tx);margin-bottom:6px">No products found</h3><p>Try a different search or clear filters.</p></div>
@@ -1953,6 +1957,22 @@ function doFilter(){
   if(nr)nr.style.display=v===0?'block':'none';
   var rc=document.getElementById('res-ct');
   if(rc)rc.textContent=v+' section'+(v!==1?'s':'');
+  var cf=document.getElementById('clear-filter-btn');
+  if(cf)cf.style.display=(activeS!=='all'||q)?'inline-flex':'none';
+  var cf2=document.getElementById('csb-clear-btn');
+  if(cf2)cf2.style.display=(activeS!=='all'||q)?'inline-flex':'none';
+}
+function clearAllFilters(){
+  activeS='all';searchQ='';quickQ='';
+  document.getElementById('top-q').value='';
+  document.getElementById('csb-q').value='';
+  document.querySelectorAll('.csb-item').forEach(function(n){
+    n.classList.toggle('on',n.dataset.s==='all');
+    n.style.display='';
+  });
+  document.querySelectorAll('.pill').forEach(function(p){p.classList.remove('on');});
+  if(document.querySelector('.pill'))document.querySelector('.pill').classList.add('on');
+  doFilter();
 }
 
 document.getElementById('top-q').addEventListener('input',function(){searchQ=this.value;doFilter();});
