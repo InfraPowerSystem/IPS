@@ -2084,7 +2084,7 @@ function submitEnquiry(){
 }
 
 // ── AI CHATBOT ──
-var chatOpen=false,chatLang='hi';
+var chatOpen=false,chatLang='en';
 
 var revRating=5;
 function openReviewForm(){document.getElementById('reviewModal').style.display='flex';}
@@ -2112,7 +2112,6 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 function toggleChat(){chatOpen=!chatOpen;document.getElementById('chatToggle').classList.toggle('open',chatOpen);document.getElementById('chatWindow').classList.toggle('open',chatOpen);}
-function toggleLang(){chatLang=chatLang==='hi'?'en':'hi';document.getElementById('langBtn').textContent=chatLang==='hi'?'English':'हिंदी';}
 function addMsg(text,role){
   var d=document.createElement('div');d.className='msg '+role;d.textContent=text;
   document.getElementById('chatMsgs').appendChild(d);
@@ -2122,94 +2121,185 @@ function addMsg(text,role){
 function showTyping(){var d=document.createElement('div');d.className='msg typing';d.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';d.id='typingDot';document.getElementById('chatMsgs').appendChild(d);document.getElementById('chatMsgs').scrollTop=9999;}
 function removeTyping(){var t=document.getElementById('typingDot');if(t)t.remove();}
 function detectHindi(t){return /[\u0900-\u097F]/.test(t);}
+function setChatLang(l){chatLang=l;}
+
+var lastTopic=null;
+var muHpMap=[
+  {max:5,   name:'MU-G6',      price:'₹11,800'},
+  {max:7.5, name:'MU-G7.5',    price:'₹12,550'},
+  {max:10,  name:'MU-G10',     price:'₹13,750'},
+  {max:15,  name:'MU-G15',     price:'₹23,100'},
+  {max:20,  name:'MU-G20',     price:'₹27,200'},
+  {max:25,  name:'MU-G25',     price:'₹44,500'},
+  {max:30,  name:'MU-G30 FASD',price:'₹56,650'},
+  {max:40,  name:'MU-G40 FASD',price:'₹67,000'},
+  {max:50,  name:'MU-G50 FASD',price:'₹91,650'},
+  {max:75,  name:'MU-G75 FASD',price:'₹1,25,000'}
+];
+function matchHp(hpNum){
+  var m=muHpMap[muHpMap.length-1];
+  for(var i=0;i<muHpMap.length;i++){if(hpNum<=muHpMap[i].max){m=muHpMap[i];break;}}
+  return m;
+}
+
+function tr(obj,lang){return obj[lang]||obj.en;}
+
+var CHAT_RULES=[
+  { id:'greeting',
+    test:function(t,raw){return /^(hi|hello|hey|namaste|namaskar|good\s?(morning|afternoon|evening)|hallo|bonjour|salut)\b/.test(t)||/नमस्ते|नमस्कार|प्रणाम/.test(raw);},
+    reply:{
+      en:'Hello! 🙏 Welcome to Infra Power System. I can help with MK1/MK2 starters, MU-G submersible controllers, single-phase controllers, MCBs, capacitors, or solar drives. What are you looking for?',
+      hi:'नमस्ते! 🙏 Infra Power System में आपका स्वागत है। मैं आपको MK1/MK2 starters, MU-G submersible controllers, single phase controllers, MCBs, capacitors या solar drives के बारे में बता सकता हूं। आपको क्या चाहिए?',
+      de:'Hallo! 🙏 Willkommen bei Infra Power System. Ich helfe Ihnen gerne bei MK1/MK2-Startern, MU-G-Tauchpumpensteuerungen, Einphasen-Reglern, LS-Schaltern, Kondensatoren oder Solarantrieben. Wonach suchen Sie?',
+      fr:"Bonjour ! 🙏 Bienvenue chez Infra Power System. Je peux vous renseigner sur les démarreurs MK1/MK2, les contrôleurs immergés MU-G, les contrôleurs monophasés, les disjoncteurs, les condensateurs ou les variateurs solaires. Que recherchez-vous ?"
+    }},
+  { id:'smart', topic:'smart',
+    test:function(t){return /smart|iot|\bapp\b|मोबाइल से|remote control|remote se|m-?power|एमपावर|\bmobile\b|mobile wala|mobile se|phone se control|duur se|door se|dur se|ghar baithe|anywhere se|kahin se bhi/.test(t);},
+    reply:{
+      en:'MU-GS Smart IoT controllers (6–75 HP) offer app, SMS, and IVRS control, starting at ₹27,300. We also have the M-POWER+ GSM module that adds remote control to any existing starter/controller — with IVRS support in 10 regional languages. Call 81268 68752 for details.',
+      hi:'MU-GS Smart IoT controllers (6–75 HP) में app, SMS और IVRS से control होता है, ₹27,300 से शुरू। साथ ही M-POWER+ GSM module भी है जो किसी भी existing starter/controller को remote-controlled बना देता है — 10 regional languages में IVRS सपोर्ट। Details के लिए 81268 68752 पर call करें।',
+      de:'Die MU-GS Smart-IoT-Steuerungen (6–75 PS) bieten Steuerung per App, SMS und IVRS, ab ₹27.300. Zusätzlich gibt es das M-POWER+ GSM-Modul, das jeden vorhandenen Starter/Regler fernsteuerbar macht — mit IVRS-Unterstützung in 10 Regionalsprachen. Rufen Sie +91 81268 68752 für Details an.',
+      fr:"Les contrôleurs Smart IoT MU-GS (6–75 CV) offrent un contrôle par application, SMS et IVRS, à partir de ₹27 300. Nous proposons aussi le module GSM M-POWER+, qui rend n'importe quel démarreur/contrôleur existant contrôlable à distance — avec support IVRS en 10 langues régionales. Appelez le +91 81268 68752 pour plus de détails."
+    }},
+  { id:'single', topic:'single',
+    test:function(t){return /single.?phase|1.?phase|एक फेज|mr-?g|mf-?g/.test(t);},
+    reply:{
+      en:'Single-phase submersible pump controllers (MR-Gi, MR-G2, MR-G3, MF-G1) are available from 0.5 HP to 5 HP, starting at ₹5,200. Features include dry-run protection and a dual meter. What HP is your pump?',
+      hi:'Single-phase submersible pump controllers (MR-Gi, MR-G2, MR-G3, MF-G1) 0.5 HP से 5 HP तक उपलब्ध हैं, ₹5,200 से शुरू। Dry-run protection, dual meter जैसी features हैं। आपका पंप कितने HP का है?',
+      de:'Einphasige Tauchpumpensteuerungen (MR-Gi, MR-G2, MR-G3, MF-G1) sind von 0,5 bis 5 PS erhältlich, ab ₹5.200. Mit Trockenlaufschutz und Doppelmessgerät. Welche PS-Zahl hat Ihre Pumpe?',
+      fr:"Les contrôleurs de pompe immergée monophasés (MR-Gi, MR-G2, MR-G3, MF-G1) sont disponibles de 0,5 à 5 CV, à partir de ₹5 200. Comprend une protection contre la marche à sec et un double compteur. Quelle est la puissance (CV) de votre pompe ?"
+    }},
+  { id:'skn', topic:'starter',
+    test:function(t){return /skn|oil.?immersed|oil starter|तेल वाला|tel wala|tel ka starter|tel wala starter/.test(t);},
+    reply:{
+      en:'SKN Bentex oil-immersed starters are available from 3 HP to 50 HP, starting at ₹2,580 — great for heavy-duty agricultural pump applications. Call 81268 68752 for details.',
+      hi:'SKN Bentex oil-immersed starters 3 HP से 50 HP तक उपलब्ध हैं, ₹2,580 से शुरू — heavy-duty agricultural pump applications के लिए बेहतरीन। Details के लिए call करें: 81268 68752',
+      de:'SKN Bentex ölgekühlte Starter sind von 3 bis 50 PS erhältlich, ab ₹2.580 — ideal für schwere landwirtschaftliche Pumpenanwendungen. Rufen Sie für Details +91 81268 68752 an.',
+      fr:"Les démarreurs à bain d'huile SKN Bentex sont disponibles de 3 à 50 CV, à partir de ₹2 580 — parfaits pour les applications agricoles robustes. Appelez le +91 81268 68752 pour plus de détails."
+    }},
+  { id:'solar', topic:'solar',
+    test:function(t){return /solar|सोलर|dhoop|dhup|surya|sun se|sunlight/.test(t);},
+    reply:{
+      en:'The Solar Px3000 MPPT drive is available for solar-powered submersible pumps. Call 81268 68752 for more details.',
+      hi:'Solar Px3000 MPPT drive उपलब्ध है solar-powered submersible pumps के लिए। ज़्यादा जानकारी के लिए 81268 68752 पर call करें।',
+      de:'Der Solar Px3000 MPPT-Antrieb ist für solarbetriebene Tauchpumpen erhältlich. Rufen Sie für weitere Details +91 81268 68752 an.',
+      fr:"Le variateur solaire Px3000 MPPT est disponible pour les pompes immergées à énergie solaire. Appelez le +91 81268 68752 pour plus de détails."
+    }},
+  { id:'mk', topic:'starter',
+    test:function(t){return /mk1|mk2|mk\.?i|dol starter|dol स्टार्टर|star.?delta/.test(t);},
+    reply:{
+      en:'MK1/MK2/MK.i DOL and Star-Delta starters cover 0.25 HP to 15 HP, 3-phase, starting from ₹3,890. MK.i also has a built-in single-phase preventer. Which HP do you need?',
+      hi:'MK1/MK2/MK.i DOL व Star-Delta starters 0.25 HP से 15 HP तक, 3-फेज, ₹3,890 से शुरू। MK.i में built-in single phase preventer भी है। कौन सा HP चाहिए?',
+      de:'MK1/MK2/MK.i DOL- und Stern-Dreieck-Starter decken 0,25 bis 15 PS ab, dreiphasig, ab ₹3.890. Das MK.i verfügt zudem über einen eingebauten Einphasenschutz. Welche PS-Zahl benötigen Sie?',
+      fr:"Les démarreurs DOL et étoile-triangle MK1/MK2/MK.i couvrent de 0,25 à 15 CV, triphasés, à partir de ₹3 890. Le MK.i dispose aussi d'une protection monophasée intégrée. Quelle puissance (CV) vous faut-il ?"
+    }},
+  { id:'mcb',
+    test:function(t){return /mcb|k-?curve|circuit breaker|\bfuse\b|line cut|elcb/.test(t);},
+    reply:{
+      en:'K-Curve MCBs are available starting at ₹1,140 — specifically designed for submersible pump circuits, in 2-pole (10-32A) and 3-pole (10-125A) options.',
+      hi:'K-Curve MCBs हमारे पास ₹1,140 से उपलब्ध हैं — खासकर submersible pump circuits के लिए designed, 2-pole (10-32A) और 3-pole (10-125A) options में।',
+      de:'K-Curve-Leitungsschutzschalter sind ab ₹1.140 erhältlich — speziell für Tauchpumpenkreise entwickelt, als 2-polige (10-32A) und 3-polige (10-125A) Ausführung.',
+      fr:"Les disjoncteurs K-Curve sont disponibles à partir de ₹1 140 — spécialement conçus pour les circuits de pompes immergées, en versions 2 pôles (10-32A) et 3 pôles (10-125A)."
+    }},
+  { id:'cap',
+    test:function(t){return /capacitor|kvar|power factor|pf correction/.test(t);},
+    reply:{
+      en:'Power Factor Correction Capacitors are available from 1 kVAr to 30 kVAr, using self-healing MPP film technology — reduces energy waste and cable heating.',
+      hi:'Power Factor Correction Capacitors 1 kVAr से 30 kVAr तक उपलब्ध हैं, self-healing MPP film technology के साथ — energy waste और cable heating कम करते हैं।',
+      de:'Blindleistungskompensations-Kondensatoren sind von 1 bis 30 kVAr erhältlich, mit selbstheilender MPP-Folientechnologie — reduziert Energieverluste und Kabelerwärmung.',
+      fr:"Les condensateurs de correction du facteur de puissance sont disponibles de 1 à 30 kVAr, avec technologie de film MPP auto-cicatrisant — réduit les pertes d'énergie et l'échauffement des câbles."
+    }},
+  { id:'mug', topic:'mug',
+    test:function(t){return /mu-?g|submersible|3.?phase|three.?phase|तीन फेज|\bpani\b|\bpump\b|boring|bore.?well|kuaan|kuan|\btubewell\b|tube.?well/.test(t);},
+    reply:{
+      en:'The MU-G series covers 3-phase submersible pump controllers from 3 HP to 75 HP — MU-G6, MU-G10, MU-G15 FASD, MU-G30/40/50/75 FASD. Prices start from ₹11,800. All include single-phasing, phase reversal, and unbalance protection. Tell me your pump HP, or call 81268 68752 for the exact model.',
+      hi:'MU-G सीरीज 3-फेज submersible pump controllers हैं, 3 HP से 75 HP तक — MU-G6, MU-G10, MU-G15 FASD, MU-G30/40/50/75 FASD। Price ₹11,800 से शुरू। Single phasing, phase reversal, unbalance protection सभी में है। सही model चुनने के लिए HP बताएं या 81268 68752 पर call करें।',
+      de:'Die MU-G-Serie umfasst dreiphasige Tauchpumpensteuerungen von 3 bis 75 PS — MU-G6, MU-G10, MU-G15 FASD, MU-G30/40/50/75 FASD. Preise ab ₹11.800. Alle Modelle bieten Schutz vor Phasenausfall, Phasenumkehr und Phasenungleichheit. Nennen Sie mir die PS-Zahl Ihrer Pumpe, oder rufen Sie +91 81268 68752 für das genaue Modell an.',
+      fr:"La série MU-G comprend des contrôleurs de pompe immergée triphasés de 3 à 75 CV — MU-G6, MU-G10, MU-G15 FASD, MU-G30/40/50/75 FASD. Prix à partir de ₹11 800. Tous incluent une protection contre le monophasage, l'inversion de phase et le déséquilibre. Indiquez-moi la puissance (CV) de votre pompe, ou appelez le +91 81268 68752 pour le modèle exact."
+    }},
+  { id:'price',
+    test:function(t){return /price|cost|कीमत|दाम|\brate\b|कितने का|kitne ka|kitna|kitni|padega|paisa|budget|preis|prix|combien|coûte/.test(t);},
+    reply:{
+      en:'Price ranges: MK1 starters from ₹3,890, MU-G controllers from ₹11,800, MU-GS Smart from ₹27,300, single-phase controllers from ₹5,200, SKN oil starters from ₹2,580. Tell me the product and HP for an exact quote, or call 81268 68752.',
+      hi:'हमारे products की price range: MK1 starters ₹3,890 से, MU-G controllers ₹11,800 से, MU-GS Smart ₹27,300 से, single-phase controllers ₹5,200 से, SKN oil starters ₹2,580 से। Exact quote के लिए बताएं कौन सा product और HP चाहिए, या 81268 68752 पर call करें।',
+      de:'Preisspannen: MK1-Starter ab ₹3.890, MU-G-Regler ab ₹11.800, MU-GS Smart ab ₹27.300, Einphasenregler ab ₹5.200, SKN-Ölstarter ab ₹2.580. Nennen Sie mir Produkt und PS-Zahl für ein genaues Angebot, oder rufen Sie +91 81268 68752 an.',
+      fr:"Fourchettes de prix : démarreurs MK1 à partir de ₹3 890, contrôleurs MU-G à partir de ₹11 800, MU-GS Smart à partir de ₹27 300, contrôleurs monophasés à partir de ₹5 200, démarreurs à huile SKN à partir de ₹2 580. Indiquez le produit et la puissance (CV) pour un devis exact, ou appelez le +91 81268 68752."
+    }},
+  { id:'contact',
+    test:function(t){return /\bcontact\b|phone number|contact number|whatsapp number|aapka number|your number|\baddress\b|\blocation\b|कहाँ|पता|फ़ोन नंबर|नंबर दो|adresse|téléphone|kontakt|telefon|dukaan|dukan|\bshop\b|\bstore\b|sampark/.test(t);},
+    reply:{
+      en:'📞 Order line: 81268 68752 / 94127 22606\n✉️ Infraint@rediffmail.com\n📍 Infra Power System, Agra, Uttar Pradesh, India\nComplaint line: 022-6932 7800\nYou can also message us directly on WhatsApp!',
+      hi:'📞 Order line: 81268 68752 / 94127 22606\n✉️ Infraint@rediffmail.com\n📍 Infra Power System, Agra, Uttar Pradesh\nComplaint line: 022-6932 7800\nWhatsApp पर भी message कर सकते हैं!',
+      de:'📞 Bestelltelefon: +91 81268 68752 / +91 94127 22606\n✉️ Infraint@rediffmail.com\n📍 Infra Power System, Agra, Uttar Pradesh, Indien\nReklamationen: +91 22-6932 7800\nSie können uns auch direkt per WhatsApp schreiben!',
+      fr:"📞 Ligne commandes : +91 81268 68752 / +91 94127 22606\n✉️ Infraint@rediffmail.com\n📍 Infra Power System, Agra, Uttar Pradesh, Inde\nRéclamations : +91 22-6932 7800\nVous pouvez aussi nous écrire directement sur WhatsApp !"
+    }},
+  { id:'warranty',
+    test:function(t){return /warranty|guarantee|गारंटी|वारंटी|garantie/.test(t);},
+    reply:{
+      en:'All LK E&A products come with genuine manufacturer warranty. Exact warranty period varies by product — call 81268 68752 for details.',
+      hi:'सभी LK E&A products genuine manufacturer warranty के साथ आते हैं। Exact warranty period product के हिसाब से अलग होता है — details के लिए 81268 68752 पर call करें।',
+      de:'Alle LK E&A-Produkte haben eine echte Herstellergarantie. Die genaue Garantiezeit variiert je nach Produkt — rufen Sie für Details +91 81268 68752 an.',
+      fr:"Tous les produits LK E&A bénéficient d'une garantie fabricant authentique. La durée exacte varie selon le produit — appelez le +91 81268 68752 pour plus de détails."
+    }},
+  { id:'thanks',
+    test:function(t){return /thank|धन्यवाद|shukriya|thanks|danke|merci/.test(t);},
+    reply:{
+      en:"You're welcome! 🙏 Feel free to ask anything else, or call us directly at 81268 68752.",
+      hi:'आपका स्वागत है! 🙏 कोई और सवाल हो तो पूछें, या सीधे 81268 68752 पर call करें।',
+      de:'Gern geschehen! 🙏 Fragen Sie gerne weiter, oder rufen Sie uns direkt unter +91 81268 68752 an.',
+      fr:"Je vous en prie ! 🙏 N'hésitez pas à poser d'autres questions, ou appelez-nous directement au +91 81268 68752."
+    }},
+  { id:'starter-generic', topic:'starter',
+    test:function(t){return /\bstarter\b|\bstarters\b|स्टार्टर|on.?off karne wala|control box|\bpanel\b.*chahiye|chahiye.*\bpanel\b|motor chalu|chalu karne wala|starting box/.test(t);},
+    reply:{
+      en:'We have several starter options: MK1/MK2 DOL & Star-Delta (0.25–15 HP, from ₹3,890), MU-A Automatic DOL, MB & ML heavy-duty starters, MF1 single/three-phase starters, and SKN oil-immersed starters (up to 50 HP). What HP and phase (single/3-phase) is your motor?',
+      hi:'हमारे पास कई starter options हैं: MK1/MK2 DOL व Star-Delta (0.25–15 HP, ₹3,890 से), MU-A Automatic DOL, MB व ML heavy-duty starters, MF1 single/three-phase starters, और SKN oil-immersed starters (50 HP तक)। आपके motor का HP और phase (single/3-phase) क्या है?',
+      de:'Wir bieten mehrere Starter-Optionen: MK1/MK2 DOL & Stern-Dreieck (0,25–15 PS, ab ₹3.890), MU-A Automatik-DOL, MB & ML Schwerlast-Starter, MF1 Ein-/Dreiphasen-Starter und SKN ölgekühlte Starter (bis 50 PS). Welche PS-Zahl und Phase (einphasig/dreiphasig) hat Ihr Motor?',
+      fr:"Nous proposons plusieurs démarreurs : MK1/MK2 DOL et étoile-triangle (0,25–15 CV, à partir de ₹3 890), MU-A DOL automatique, démarreurs robustes MB et ML, démarreurs MF1 mono/triphasés, et démarreurs à huile SKN (jusqu'à 50 CV). Quelle est la puissance (CV) et la phase (mono/triphasé) de votre moteur ?"
+    }}
+];
+
+function hpOnlyMessage(t){
+  var m=t.match(/(\d+(\.\d+)?)\s*(hp|h\.p\.?|अश्वशक्ति|ps\b)/i);
+  if(m)return parseFloat(m[1]);
+  var m2=t.trim().match(/^(\d+(\.\d+)?)$/);
+  if(m2)return parseFloat(m2[1]);
+  return null;
+}
 
 function getBotReply(raw){
   var t=raw.toLowerCase();
-  var hi=detectHindi(raw)||chatLang==='hi';
+  var lang=detectHindi(raw)?'hi':chatLang;
 
-  function pick(hiText,enText){return hi?hiText:enText;}
-
-  // Greetings
-  if(/^(hi|hello|hey|namaste|namaskar)\b/.test(t)||/नमस्ते|नमस्कार|प्रणाम/.test(raw)){
-    return pick('नमस्ते! 🙏 Infra Power System में आपका स्वागत है। मैं आपको MK1/MK2 starters, MU-G submersible controllers, single phase controllers, MCBs, capacitors या solar drives के बारे में बता सकता हूं। आपको क्या चाहिए?',
-      'Hello! 🙏 Welcome to Infra Power System. I can help with MK1/MK2 starters, MU-G submersible controllers, single-phase controllers, MCBs, capacitors, or solar drives. What are you looking for?');
+  // Follow-up: bare HP number after a starter/controller topic was just discussed
+  var hpNum=hpOnlyMessage(t);
+  if(hpNum!==null && (lastTopic==='starter'||lastTopic==='mug'||lastTopic===null)){
+    var match=matchHp(hpNum);
+    lastTopic='mug';
+    var msgs={
+      en:'For '+hpNum+' HP, 3-phase, I\'d recommend the '+match.name+' — starting '+match.price+'. For a surface-mounted alternative up to 15 HP, MK1/MK2 DOL starters start at ₹3,890. Single-phase pump instead? Let me know!',
+      hi:hpNum+' HP, 3-phase के लिए '+match.name+' सही रहेगा — शुरुआती कीमत '+match.price+'। 15 HP तक के लिए MK1/MK2 DOL starter भी option है, ₹3,890 से। अगर single-phase पंप है तो बताएं!',
+      de:'Für '+hpNum+' PS, dreiphasig, empfehle ich den '+match.name+' — ab '+match.price+'. Als Oberflächen-Alternative bis 15 PS gibt es MK1/MK2 DOL-Starter ab ₹3.890. Einphasige Pumpe? Sagen Sie Bescheid!',
+      fr:'Pour '+hpNum+' CV, triphasé, je recommande le '+match.name+' — à partir de '+match.price+'. Comme alternative en surface jusqu\'à 15 CV, les démarreurs DOL MK1/MK2 sont à partir de ₹3 890. Pompe monophasée ? Dites-le-moi !'
+    };
+    return tr(msgs,lang);
   }
 
-  // 3-phase submersible / MU-G controllers
-  if(/mu-?g|submersible|3.?phase|three.?phase|तीन फेज/.test(t)){
-    return pick('MU-G सीरीज 3-फेज submersible pump controllers हैं, 3 HP से 75 HP तक — MU-G6, MU-G10, MU-G15 FASD, MU-G30/40/50/75 FASD। Price ₹11,800 से शुरू। Single phasing, phase reversal, unbalance protection सभी में है। सही model चुनने के लिए HP बताएं या 81268 68752 पर call करें।',
-      'The MU-G series covers 3-phase submersible pump controllers from 3 HP to 75 HP — MU-G6, MU-G10, MU-G15 FASD, MU-G30/40/50/75 FASD. Prices start from ₹11,800. All include single-phasing, phase reversal, and unbalance protection. Tell me your pump HP, or call 81268 68752 for the exact model.');
+  for(var i=0;i<CHAT_RULES.length;i++){
+    var rule=CHAT_RULES[i];
+    if(rule.test(t,raw)){
+      if(rule.topic)lastTopic=rule.topic;
+      return tr(rule.reply,lang);
+    }
   }
 
-  // Smart IoT / MU-GS
-  if(/smart|iot|app|मोबाइल से|remote control|m-?power|एमपावर/.test(t)){
-    return pick('MU-GS Smart IoT controllers (6–75 HP) में app, SMS और IVRS से control होता है, ₹27,300 से शुरू। साथ ही M-POWER+ GSM module भी है जो किसी भी existing starter/controller को remote-controlled बना देता है — 10 regional languages में IVRS सपोर्ट। Details के लिए 81268 68752 पर call करें।',
-      'MU-GS Smart IoT controllers (6–75 HP) offer app, SMS, and IVRS control, starting at ₹27,300. We also have the M-POWER+ GSM module that adds remote control to any existing starter/controller — with IVRS support in 10 regional languages. Call 81268 68752 for details.');
-  }
-
-  // Single phase
-  if(/single.?phase|1.?phase|एक फेज|mr-?g|mf-?g/.test(t)){
-    return pick('Single-phase submersible pump controllers (MR-Gi, MR-G2, MR-G3, MF-G1) 0.5 HP से 5 HP तक उपलब्ध हैं, ₹5,200 से शुरू। Dry-run protection, dual meter जैसी features हैं। आपका पंप कितने HP का है?',
-      'Single-phase submersible pump controllers (MR-Gi, MR-G2, MR-G3, MF-G1) are available from 0.5 HP to 5 HP, starting at ₹5,200. Features include dry-run protection and a dual meter. What HP is your pump?');
-  }
-
-  // MK1/MK2/MK.i starters
-  if(/mk1|mk2|mk\.?i|dol starter|dol स्टार्टर|star.?delta/.test(t)){
-    return pick('MK1/MK2/MK.i DOL व Star-Delta starters 0.25 HP से 15 HP तक, 3-फेज, ₹3,890 से शुरू। MK.i में built-in single phase preventer भी है। कौन सा HP चाहिए?',
-      'MK1/MK2/MK.i DOL and Star-Delta starters cover 0.25 HP to 15 HP, 3-phase, starting from ₹3,890. MK.i also has a built-in single-phase preventer. Which HP do you need?');
-  }
-
-  // SKN oil starters
-  if(/skn|oil.?immersed|oil starter|तेल वाला/.test(t)){
-    return pick('SKN Bentex oil-immersed starters 3 HP से 50 HP तक उपलब्ध हैं, ₹2,580 से शुरू — heavy-duty agricultural pump applications के लिए बेहतरीन। Details के लिए call करें: 81268 68752',
-      'SKN Bentex oil-immersed starters are available from 3 HP to 50 HP, starting at ₹2,580 — great for heavy-duty agricultural pump applications. Call 81268 68752 for details.');
-  }
-
-  // MCB
-  if(/mcb|k-?curve|circuit breaker/.test(t)){
-    return pick('K-Curve MCBs हमारे पास ₹1,140 से उपलब्ध हैं — खासकर submersible pump circuits के लिए designed, 2-pole (10-32A) और 3-pole (10-125A) options में।',
-      'K-Curve MCBs are available starting at ₹1,140 — specifically designed for submersible pump circuits, in 2-pole (10-32A) and 3-pole (10-125A) options.');
-  }
-
-  // Capacitors
-  if(/capacitor|kvar|power factor|pf correction/.test(t)){
-    return pick('Power Factor Correction Capacitors 1 kVAr से 30 kVAr तक उपलब्ध हैं, self-healing MPP film technology के साथ — energy waste और cable heating कम करते हैं।',
-      'Power Factor Correction Capacitors are available from 1 kVAr to 30 kVAr, using self-healing MPP film technology — reduces energy waste and cable heating.');
-  }
-
-  // Solar
-  if(/solar|सोलर/.test(t)){
-    return pick('Solar Px3000 MPPT drive उपलब्ध है solar-powered submersible pumps के लिए। ज़्यादा जानकारी के लिए 81268 68752 पर call करें।',
-      'The Solar Px3000 MPPT drive is available for solar-powered submersible pumps. Call 81268 68752 for more details.');
-  }
-
-  // Price / cost queries generic
-  if(/price|cost|कीमत|दाम|rate|कितने का/.test(t)){
-    return pick('हमारे products की price range: MK1 starters ₹3,890 से, MU-G controllers ₹11,800 से, MU-GS Smart ₹27,300 से, single-phase controllers ₹5,200 से, SKN oil starters ₹2,580 से। Exact quote के लिए बताएं कौन सा product और HP चाहिए, या 81268 68752 पर call करें।',
-      'Price ranges: MK1 starters from ₹3,890, MU-G controllers from ₹11,800, MU-GS Smart from ₹27,300, single-phase controllers from ₹5,200, SKN oil starters from ₹2,580. Tell me the product and HP for an exact quote, or call 81268 68752.');
-  }
-
-  // Contact / phone / location
-  if(/contact|phone|number|call|address|location|कहाँ|पता|फ़ोन|नंबर/.test(t)){
-    return pick('📞 Order line: 81268 68752 / 94127 22606\n✉️ Infraint@rediffmail.com\n📍 Infra Power System, Agra, Uttar Pradesh\nComplaint line: 022-6932 7800\nWhatsApp पर भी message कर सकते हैं!',
-      '📞 Order line: 81268 68752 / 94127 22606\n✉️ Infraint@rediffmail.com\n📍 Infra Power System, Agra, Uttar Pradesh\nComplaint line: 022-6932 7800\nYou can also message us directly on WhatsApp!');
-  }
-
-  // Warranty
-  if(/warranty|guarantee|गारंटी|वारंटी/.test(t)){
-    return pick('सभी LK E&A products genuine manufacturer warranty के साथ आते हैं। Exact warranty period product के हिसाब से अलग होता है — details के लिए 81268 68752 पर call करें।',
-      'All LK E&A products come with genuine manufacturer warranty. Exact warranty period varies by product — call 81268 68752 for details.');
-  }
-
-  // Thanks
-  if(/thank|धन्यवाद|shukriya|thanks/.test(t)){
-    return pick('आपका स्वागत है! 🙏 कोई और सवाल हो तो पूछें, या सीधे 81268 68752 पर call करें।',
-      "You're welcome! 🙏 Feel free to ask anything else, or call us directly at 81268 68752.");
-  }
-
-  // Fallback
-  return pick('माफ़ कीजिए, मुझे यह पूरी तरह समझ नहीं आया। कृपया बताएं — कौन सा product चाहिए (starter, controller, MCB, capacitor, solar) और कितने HP का? या सीधे 81268 68752 पर call/WhatsApp करें — हमारी टीम तुरंत मदद करेगी।',
-    "Sorry, I didn't quite catch that. Could you tell me which product you need (starter, controller, MCB, capacitor, solar) and what HP? Or call/WhatsApp us directly at 81268 68752 — our team will help right away.");
+  var fallback={
+    en:"Sorry, I didn't quite catch that. Could you tell me which product you need (starter, controller, MCB, capacitor, solar) and what HP? Or call/WhatsApp us directly at 81268 68752 — our team will help right away.",
+    hi:'माफ़ कीजिए, मुझे यह पूरी तरह समझ नहीं आया। कृपया बताएं — कौन सा product चाहिए (starter, controller, MCB, capacitor, solar) और कितने HP का? या सीधे 81268 68752 पर call/WhatsApp करें — हमारी टीम तुरंत मदद करेगी।',
+    de:'Entschuldigung, das habe ich nicht ganz verstanden. Welches Produkt benötigen Sie (Starter, Regler, LS-Schalter, Kondensator, Solar) und welche PS-Zahl? Oder rufen Sie uns direkt an / schreiben Sie uns per WhatsApp: +91 81268 68752.',
+    fr:"Désolé, je n'ai pas bien compris. Pouvez-vous préciser le produit recherché (démarreur, contrôleur, disjoncteur, condensateur, solaire) et la puissance (CV) ? Ou appelez/WhatsApp directement le +91 81268 68752 — notre équipe vous aidera tout de suite."
+  };
+  return tr(fallback,lang);
 }
 
 function sendChat(){
@@ -2521,12 +2611,17 @@ setTimeout(function(){
 <div class="chat-window" id="chatWindow">
   <div class="chat-hd">
     <div class="chat-avatar">🤖</div>
-    <div class="chat-hd-info"><h4>Infra Power Assistant</h4><p>Hindi &amp; English · Powered by AI</p></div>
-    <button class="lang-switch" id="langBtn" onclick="toggleLang()">हिंदी</button>
+    <div class="chat-hd-info"><h4>Infra Power Assistant</h4><p>Multilingual · Instant Answers</p></div>
+    <select id="langBtn" onchange="setChatLang(this.value)" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:600;padding:5px 8px;border-radius:7px;cursor:pointer;outline:none">
+      <option value="en" selected>🇬🇧 English</option>
+      <option value="hi">🇮🇳 हिंदी</option>
+      <option value="de">🇩🇪 Deutsch</option>
+      <option value="fr">🇫🇷 Français</option>
+    </select>
     <div class="chat-online"></div>
   </div>
   <div class="chat-msgs" id="chatMsgs">
-    <div class="msg bot">नमस्ते! 🙏 मैं Infra Power System का AI assistant हूँ। आप मुझसे pump starters, controllers, या किसी भी product के बारे में पूछ सकते हैं।<br><br>Hello! I'm the Infra Power AI assistant. Ask me about any product!</div>
+    <div class="msg bot">Hello! 🙏 I'm the Infra Power System assistant. Ask me about any starter, controller, MCB, capacitor, or solar product — or switch language above (English, हिंदी, Deutsch, Français).</div>
   </div>
   <div class="chat-quick" id="quickChips">
     <button class="qchip" onclick="sendQuick('मुझे 5HP 3-phase submersible pump के लिए controller चाहिए')">5HP 3-Phase</button>
